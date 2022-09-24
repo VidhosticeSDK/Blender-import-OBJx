@@ -497,8 +497,11 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
     if not SPLIT_OB_OR_GROUP or not faces:
         use_verts_nor = any(f[1] for f in faces)
         use_verts_tex = any(f[2] for f in faces)
+        use_verts_tex2 = any(f[3] for f in faces)
+        use_verts_tex3 = any(f[4] for f in faces)
+        use_verts_tex4 = any(f[5] for f in faces)
         # use the filename for the object name since we aren't chopping up the mesh.
-        return [(verts_loc, faces, unique_materials, filename, use_verts_nor, use_verts_tex)]
+        return [(verts_loc, faces, unique_materials, filename, use_verts_nor, use_verts_tex, use_verts_tex2, use_verts_tex3, use_verts_tex4)]
 
     def key_to_name(key):
         # if the key is a tuple, join it to make a string
@@ -518,6 +521,9 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
         (face_vert_loc_indices,
          face_vert_nor_indices,
          face_vert_tex_indices,
+         face_vert_tex2_indices,
+         face_vert_tex3_indices,
+         face_vert_tex4_indices,
          context_material,
          _context_smooth_group,
          context_object_key,
@@ -528,7 +534,7 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
         if oldkey != key:
             # Check the key has changed.
             (verts_split, faces_split, unique_materials_split, vert_remap,
-             use_verts_nor, use_verts_tex) = face_split_dict.setdefault(key, ([], [], {}, {}, [], []))
+             use_verts_nor, use_verts_tex, use_verts_tex2, use_verts_tex3, use_verts_tex4) = face_split_dict.setdefault(key, ([], [], {}, {}, [], [], [], [], []))
             oldkey = key
 
         if not face_is_edge(face):
@@ -537,6 +543,15 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
 
             if not use_verts_tex and face_vert_tex_indices:
                 use_verts_tex.append(True)
+
+            if not use_verts_tex2 and face_vert_tex2_indices:
+                use_verts_tex2.append(True)
+
+            if not use_verts_tex3 and face_vert_tex3_indices:
+                use_verts_tex3.append(True)
+
+            if not use_verts_tex4 and face_vert_tex4_indices:
+                use_verts_tex4.append(True)
 
         # Remap verts to new vert list and add where needed
         for loop_idx, vert_idx in enumerate(face_vert_loc_indices):
@@ -554,8 +569,8 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
         faces_split.append(face)
 
     # remove one of the items and reorder
-    return [(verts_split, faces_split, unique_materials_split, key_to_name(key), bool(use_vnor), bool(use_vtex))
-            for key, (verts_split, faces_split, unique_materials_split, _, use_vnor, use_vtex)
+    return [(verts_split, faces_split, unique_materials_split, key_to_name(key), bool(use_vnor), bool(use_vtex), bool(use_vtex2), bool(use_vtex3), bool(use_vtex4))
+            for key, (verts_split, faces_split, unique_materials_split, _, use_vnor, use_vtex, use_vtex2, use_vtex3, use_vtex4)
             in face_split_dict.items()]
 
 
@@ -564,6 +579,9 @@ def create_mesh(new_objects,
                 verts_loc,
                 verts_nor,
                 verts_tex,
+                verts_tex2,
+                verts_tex3,
+                verts_tex4,
                 verts_col,
                 faces,
                 unique_materials,
@@ -594,6 +612,9 @@ def create_mesh(new_objects,
         (face_vert_loc_indices,
          face_vert_nor_indices,
          face_vert_tex_indices,
+         face_vert_tex2_indices,
+         face_vert_tex3_indices,
+         face_vert_tex4_indices,
          context_material,
          context_smooth_group,
          context_object_key,
@@ -644,6 +665,18 @@ def create_mesh(new_objects,
                                     face_vert_tex_indices[ngon[1]],
                                     face_vert_tex_indices[ngon[2]],
                                     ] if face_vert_tex_indices else [],
+                                [face_vert_tex2_indices[ngon[0]],
+                                    face_vert_tex2_indices[ngon[1]],
+                                    face_vert_tex2_indices[ngon[2]],
+                                    ] if face_vert_tex2_indices else [],
+                                [face_vert_tex3_indices[ngon[0]],
+                                    face_vert_tex3_indices[ngon[1]],
+                                    face_vert_tex3_indices[ngon[2]],
+                                    ] if face_vert_tex3_indices else [],
+                                [face_vert_tex4_indices[ngon[0]],
+                                    face_vert_tex4_indices[ngon[1]],
+                                    face_vert_tex4_indices[ngon[2]],
+                                    ] if face_vert_tex4_indices else [],
                                 context_material,
                                 context_smooth_group,
                                 context_object_key,
@@ -701,7 +734,7 @@ def create_mesh(new_objects,
     # verts_loc is a list of (x, y, z) tuples
     me.vertices.foreach_set("co", unpack_list(verts_loc))
 
-    loops_vert_idx = tuple(vidx for (face_vert_loc_indices, _, _, _, _, _, _) in faces for vidx in face_vert_loc_indices)
+    loops_vert_idx = tuple(vidx for (face_vert_loc_indices, _, _, _, _, _, _, _, _, _) in faces for vidx in face_vert_loc_indices)
     faces_loop_start = []
     lidx = 0
     for f in faces:
@@ -709,23 +742,23 @@ def create_mesh(new_objects,
         nbr_vidx = len(face_vert_loc_indices)
         faces_loop_start.append(lidx)
         lidx += nbr_vidx
-    faces_loop_total = tuple(len(face_vert_loc_indices) for (face_vert_loc_indices, _, _, _, _, _, _) in faces)
+    faces_loop_total = tuple(len(face_vert_loc_indices) for (face_vert_loc_indices, _, _, _, _, _, _, _, _, _) in faces)
 
     me.loops.foreach_set("vertex_index", loops_vert_idx)
     me.polygons.foreach_set("loop_start", faces_loop_start)
     me.polygons.foreach_set("loop_total", faces_loop_total)
 
-    faces_ma_index = tuple(material_mapping[context_material] for (_, _, _, context_material, _, _, _) in faces)
+    faces_ma_index = tuple(material_mapping[context_material] for (_, _, _, _, _, _, context_material, _, _, _) in faces)
     me.polygons.foreach_set("material_index", faces_ma_index)
 
-    faces_use_smooth = tuple(bool(context_smooth_group) for (_, _, _, _, context_smooth_group, _, _) in faces)
+    faces_use_smooth = tuple(bool(context_smooth_group) for (_, _, _, _, _, _, _, context_smooth_group, _, _) in faces)
     me.polygons.foreach_set("use_smooth", faces_use_smooth)
 
     if verts_nor and me.loops:
         # Note: we store 'temp' normals in loops, since validate() may alter final mesh,
         #       we can only set custom lnors *after* calling it.
         me.create_normals_split()
-        loops_nor = tuple(no for (_, face_vert_nor_indices, _, _, _, _, _) in faces
+        loops_nor = tuple(no for (_, face_vert_nor_indices, _, _, _, _, _, _, _, _) in faces
                              for face_noidx in face_vert_nor_indices
                              for no in verts_nor[face_noidx])
         me.loops.foreach_set("normal", loops_nor)
@@ -734,10 +767,37 @@ def create_mesh(new_objects,
         # Some files Do not explicitely write the 'v' value when it's 0.0, see T68249...
         verts_tex = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex]
         me.uv_layers.new(do_init=False)
-        loops_uv = tuple(uv for (_, _, face_vert_tex_indices, _, _, _, _) in faces
+        loops_uv = tuple(uv for (_, _, face_vert_tex_indices, _, _, _, _, _, _, _) in faces
                             for face_uvidx in face_vert_tex_indices
                             for uv in verts_tex[face_uvidx])
         me.uv_layers[0].data.foreach_set("uv", loops_uv)
+
+    if verts_tex2 and me.polygons:
+        # Some files Do not explicitely write the 'v' value when it's 0.0, see T68249...
+        verts_tex2 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex2]
+        me.uv_layers.new(do_init=False)
+        loops_uv = tuple(uv for (_, _, _, face_vert_tex2_indices, _, _, _, _, _, _) in faces
+                            for face_uvidx in face_vert_tex2_indices
+                            for uv in verts_tex2[face_uvidx])
+        me.uv_layers[1].data.foreach_set("uv", loops_uv)
+
+    if verts_tex3 and me.polygons:
+        # Some files Do not explicitely write the 'v' value when it's 0.0, see T68249...
+        verts_tex3 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex3]
+        me.uv_layers.new(do_init=False)
+        loops_uv = tuple(uv for (_, _, _, _, face_vert_tex3_indices, _, _, _, _, _) in faces
+                            for face_uvidx in face_vert_tex3_indices
+                            for uv in verts_tex3[face_uvidx])
+        me.uv_layers[2].data.foreach_set("uv", loops_uv)
+
+    if verts_tex4 and me.polygons:
+        # Some files Do not explicitely write the 'v' value when it's 0.0, see T68249...
+        verts_tex4 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex4]
+        me.uv_layers.new(do_init=False)
+        loops_uv = tuple(uv for (_, _, _, _, _, face_vert_tex4_indices, _, _, _, _) in faces
+                            for face_uvidx in face_vert_tex4_indices
+                            for uv in verts_tex4[face_uvidx])
+        me.uv_layers[3].data.foreach_set("uv", loops_uv)
 
     use_edges = use_edges and bool(edges)
     if use_edges:
@@ -956,10 +1016,16 @@ def load(context,
         face_vert_loc_indices = []
         face_vert_nor_indices = []
         face_vert_tex_indices = []
+        face_vert_tex2_indices = []
+        face_vert_tex3_indices = []
+        face_vert_tex4_indices = []
         return (
             face_vert_loc_indices,
             face_vert_nor_indices,
             face_vert_tex_indices,
+            face_vert_tex2_indices,
+            face_vert_tex3_indices,
+            face_vert_tex4_indices,
             context_material,
             context_smooth_group,
             context_object_key,
@@ -978,6 +1044,9 @@ def load(context,
         verts_loc = []
         verts_nor = []
         verts_tex = []
+        verts_tex2 = []
+        verts_tex3 = []
+        verts_tex4 = []
         verts_col = []
         faces = []  # tuples of the faces
         material_libs = set()  # filenames to material libs this OBJ uses
@@ -1016,7 +1085,10 @@ def load(context,
         face_vert_loc_indices = None
         face_vert_nor_indices = None
         face_vert_tex_indices = None
-        verts_loc_len = verts_nor_len = verts_tex_len = 0
+        face_vert_tex2_indices = None
+        face_vert_tex3_indices = None
+        face_vert_tex4_indices = None
+        verts_loc_len = verts_nor_len = verts_tex_len = verts_tex2_len = verts_tex3_len = verts_tex4_len = 0
         face_items_usage = set()
         face_invalid_blenpoly = None
         prev_vidx = None
@@ -1050,12 +1122,24 @@ def load(context,
                     vdata, vdata_len, do_quick_vert = verts_nor, 3, not skip_quick_vert
                 elif line_start == b'vt':
                     vdata, vdata_len, do_quick_vert = verts_tex, 2, not skip_quick_vert
+                elif line_start == b'vt2':
+                    vdata, vdata_len, do_quick_vert = verts_tex2, 2, not skip_quick_vert
+                elif line_start == b'vt3':
+                    vdata, vdata_len, do_quick_vert = verts_tex3, 2, not skip_quick_vert
+                elif line_start == b'vt4':
+                    vdata, vdata_len, do_quick_vert = verts_tex4, 2, not skip_quick_vert
                 elif context_multi_line == b'v':
                     vdata, vdata_len, do_quick_vert = verts_loc, 3, False
                 elif context_multi_line == b'vn':
                     vdata, vdata_len, do_quick_vert = verts_nor, 3, False
                 elif context_multi_line == b'vt':
                     vdata, vdata_len, do_quick_vert = verts_tex, 2, False
+                elif context_multi_line == b'vt2':
+                    vdata, vdata_len, do_quick_vert = verts_tex2, 2, False
+                elif context_multi_line == b'vt3':
+                    vdata, vdata_len, do_quick_vert = verts_tex3, 2, False
+                elif context_multi_line == b'vt4':
+                    vdata, vdata_len, do_quick_vert = verts_tex4, 2, False
                 else:
                     vdata_len = 0
 
@@ -1082,13 +1166,16 @@ def load(context,
                         line_split = line_split[1:]
                         # Instantiate a face
                         face = create_face(context_material, context_smooth_group, context_object_key)
-                        (face_vert_loc_indices, face_vert_nor_indices, face_vert_tex_indices,
+                        (face_vert_loc_indices, face_vert_nor_indices, face_vert_tex_indices, face_vert_tex2_indices, face_vert_tex3_indices, face_vert_tex4_indices,
                          _1, _2, _3, face_invalid_blenpoly) = face
                         faces.append(face)
                         face_items_usage.clear()
                         verts_loc_len = len(verts_loc)
                         verts_nor_len = len(verts_nor)
                         verts_tex_len = len(verts_tex)
+                        verts_tex2_len = len(verts_tex2)
+                        verts_tex3_len = len(verts_tex3)
+                        verts_tex4_len = len(verts_tex4)
                         if context_material is None:
                             use_default_material = True
                     # Else, use face_vert_loc_indices and face_vert_tex_indices previously defined and used the obj_face
@@ -1120,6 +1207,24 @@ def load(context,
                             face_vert_tex_indices.append((idx + verts_tex_len) if (idx < 1) else idx - 1)
                         else:
                             face_vert_tex_indices.append(0)
+
+                        if len(obj_vert) > 1 and obj_vert[1] and obj_vert[1] != b'0':
+                            idx = int(obj_vert[1])
+                            face_vert_tex2_indices.append((idx + verts_tex2_len) if (idx < 1) else idx - 1)
+                        else:
+                            face_vert_tex2_indices.append(0)
+
+                        if len(obj_vert) > 1 and obj_vert[1] and obj_vert[1] != b'0':
+                            idx = int(obj_vert[1])
+                            face_vert_tex3_indices.append((idx + verts_tex3_len) if (idx < 1) else idx - 1)
+                        else:
+                            face_vert_tex3_indices.append(0)
+
+                        if len(obj_vert) > 1 and obj_vert[1] and obj_vert[1] != b'0':
+                            idx = int(obj_vert[1])
+                            face_vert_tex4_indices.append((idx + verts_tex4_len) if (idx < 1) else idx - 1)
+                        else:
+                            face_vert_tex4_indices.append(0)
 
                         if len(obj_vert) > 2 and obj_vert[2] and obj_vert[2] != b'0':
                             idx = int(obj_vert[2])
@@ -1275,7 +1380,7 @@ def load(context,
         SPLIT_OB_OR_GROUP = bool(use_split_objects or use_split_groups)
 
         # for data in split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
-        #     verts_loc_split, faces_split, unique_materials_split, dataname, use_vnor, use_vtex = data
+        #     verts_loc_split, faces_split, unique_materials_split, dataname, use_vnor, use_vtex, use_vtex2, use_vtex3, use_vtex4 = data
 
         # Note by Tomoaki Osada:
         # The original program inputs verts_loc into split_mesh() and sometimes the order of verts_loc
@@ -1293,7 +1398,7 @@ def load(context,
             verts = verts_loc
         
         for data in split_mesh(verts, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
-            verts_split, faces_split, unique_materials_split, dataname, use_vnor, use_vtex = data
+            verts_split, faces_split, unique_materials_split, dataname, use_vnor, use_vtex, use_vtex2, use_vtex3, use_vtex4 = data
             
             verts_loc_split = []
             verts_col_split = []
@@ -1305,12 +1410,15 @@ def load(context,
                     verts_loc_split.append(val)
 
             # Create meshes from the data, warning 'vertex_groups' wont support splitting
-            #~ print(dataname, use_vnor, use_vtex)
+            #~ print(dataname, use_vnor, use_vtex, use_vtex2, use_vtex3, use_vtex4)
             create_mesh(new_objects,
                         use_edges,
                         verts_loc_split,
                         verts_nor if use_vnor else [],
                         verts_tex if use_vtex else [],
+                        verts_tex2 if use_vtex2 else [],
+                        verts_tex3 if use_vtex3 else [],
+                        verts_tex4 if use_vtex4 else [],
                         verts_col_split,
                         faces_split,
                         unique_materials_split,
