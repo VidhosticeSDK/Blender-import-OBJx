@@ -12,3 +12,6 @@ So far the testing is not really sufficient. If you have any troubles importing 
 4. Press `Install` and select the downloaded zip
 5. Enable the addon
 6. Done. You can import Wavefront OBJ with vertex color from `File --> Import --> Wavefront with VC (.obj)`, or export it in the same way.
+
+# Modification by VidhosticeSDK
+Wavefront OBJx file: 4xUV, VertexColor, multiple Materials
