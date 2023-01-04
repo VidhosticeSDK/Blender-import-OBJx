@@ -61,7 +61,7 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".objx"
     filter_glob: StringProperty(
-            default="*.objx;*.obj;*.mtl",
+            default="*.objx",
             options={'HIDDEN'},
             )
 
