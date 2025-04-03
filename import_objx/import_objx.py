@@ -1,22 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # Script copyright (C) Campbell Barton
 # Contributors: Campbell Barton, Jiri Hnidek, Paolo Ciccone
@@ -361,9 +343,9 @@ def create_materials(filepath, relpath,
                         context_mat_wrap.emission_strength = 1.0
                     elif line_id == b'ns':
                         # XXX Totally empirical conversion, trying to adapt it
-                        #     (from 0.0 - 900.0 OBJ specular exponent range to 1.0 - 0.0 Principled BSDF range)...
-                        val = max(0.0, min(900.0, float_func(line_split[1])))
-                        context_mat_wrap.roughness = 1.0 - (sqrt(val) / 30)
+                        #     (from 0.0 - 1000.0 OBJ specular exponent range to 1.0 - 0.0 Principled BSDF range)...
+                        val = max(0.0, min(1000.0, float_func(line_split[1])))
+                        context_mat_wrap.roughness = 1.0 - (sqrt(val / 1000))
                         context_material_vars.add("roughness")
                     elif line_id == b'ni':  # Refraction index (between 0.001 and 10).
                         context_mat_wrap.ior = float_func(line_split[1])
@@ -624,7 +606,7 @@ def create_mesh(new_objects,
         len_face_vert_loc_indices = len(face_vert_loc_indices)
 
         if len_face_vert_loc_indices == 1:
-            faces.pop(f_idx)  # cant add single vert faces
+            faces.pop(f_idx)  # can't add single vert faces
 
         # Face with a single item in face_vert_nor_indices is actually a polyline!
         elif face_is_edge(face):
@@ -723,7 +705,7 @@ def create_mesh(new_objects,
 
     me = bpy.data.meshes.new(dataname)
 
-    # make sure the list isnt too big
+    # make sure the list isn't too big
     for material in materials:
         me.materials.append(material)
 
@@ -742,11 +724,15 @@ def create_mesh(new_objects,
         nbr_vidx = len(face_vert_loc_indices)
         faces_loop_start.append(lidx)
         lidx += nbr_vidx
+# removed between 3.5.1 and 3.6.0
     faces_loop_total = tuple(len(face_vert_loc_indices) for (face_vert_loc_indices, _, _, _, _, _, _, _, _, _) in faces)
+# https://github.com/blender/blender-addons/commit/bb76a94d06ae5f4a5a8313a7b6bf5660dcb8e569
 
     me.loops.foreach_set("vertex_index", loops_vert_idx)
     me.polygons.foreach_set("loop_start", faces_loop_start)
+# removed between 3.5.1 and 3.6.0
     me.polygons.foreach_set("loop_total", faces_loop_total)
+# https://github.com/blender/blender-addons/commit/bb76a94d06ae5f4a5a8313a7b6bf5660dcb8e569
 
     faces_ma_index = tuple(material_mapping[context_material] for (_, _, _, _, _, _, context_material, _, _, _) in faces)
     me.polygons.foreach_set("material_index", faces_ma_index)
@@ -757,14 +743,19 @@ def create_mesh(new_objects,
     if verts_nor and me.loops:
         # Note: we store 'temp' normals in loops, since validate() may alter final mesh,
         #       we can only set custom lnors *after* calling it.
-        me.create_normals_split()
+        if bpy.app.version < (4, 1, 0):
+            me.create_normals_split()
         loops_nor = tuple(no for (_, face_vert_nor_indices, _, _, _, _, _, _, _, _) in faces
-                             for face_noidx in face_vert_nor_indices
-                             for no in verts_nor[face_noidx])
-        me.loops.foreach_set("normal", loops_nor)
+                          for face_noidx in face_vert_nor_indices
+                          for no in verts_nor[face_noidx])
+        if bpy.app.version < (4, 1, 0):
+            me.loops.foreach_set("normal", loops_nor)
+        else:
+            me.attributes.new("temp_custom_normals", 'FLOAT_VECTOR', 'CORNER')
+            me.attributes["temp_custom_normals"].data.foreach_set("vector", loops_nor)
 
     if verts_tex and me.polygons:
-        # Some files Do not explicitely write the 'v' value when it's 0.0, see T68249...
+        # Some files Do not explicitly write the 'v' value when it's 0.0, see T68249...
         verts_tex = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex]
         me.uv_layers.new(do_init=False)
         loops_uv = tuple(uv for (_, _, face_vert_tex_indices, _, _, _, _, _, _, _) in faces
@@ -777,8 +768,8 @@ def create_mesh(new_objects,
         verts_tex2 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex2]
         me.uv_layers.new(do_init=False)
         loops_uv = tuple(uv for (_, _, _, face_vert_tex2_indices, _, _, _, _, _, _) in faces
-                            for face_uvidx in face_vert_tex2_indices
-                            for uv in verts_tex2[face_uvidx])
+                         for face_uvidx in face_vert_tex2_indices
+                         for uv in verts_tex2[face_uvidx])
         me.uv_layers[1].data.foreach_set("uv", loops_uv)
 
     if verts_tex3 and me.polygons:
@@ -786,8 +777,8 @@ def create_mesh(new_objects,
         verts_tex3 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex3]
         me.uv_layers.new(do_init=False)
         loops_uv = tuple(uv for (_, _, _, _, face_vert_tex3_indices, _, _, _, _, _) in faces
-                            for face_uvidx in face_vert_tex3_indices
-                            for uv in verts_tex3[face_uvidx])
+                         for face_uvidx in face_vert_tex3_indices
+                         for uv in verts_tex3[face_uvidx])
         me.uv_layers[2].data.foreach_set("uv", loops_uv)
 
     if verts_tex4 and me.polygons:
@@ -795,8 +786,8 @@ def create_mesh(new_objects,
         verts_tex4 = [uv if len(uv) == 2 else uv + [0.0] for uv in verts_tex4]
         me.uv_layers.new(do_init=False)
         loops_uv = tuple(uv for (_, _, _, _, _, face_vert_tex4_indices, _, _, _, _) in faces
-                            for face_uvidx in face_vert_tex4_indices
-                            for uv in verts_tex4[face_uvidx])
+                         for face_uvidx in face_vert_tex4_indices
+                         for uv in verts_tex4[face_uvidx])
         me.uv_layers[3].data.foreach_set("uv", loops_uv)
 
     use_edges = use_edges and bool(edges)
@@ -804,7 +795,7 @@ def create_mesh(new_objects,
         me.edges.add(len(edges))
         # edges should be a list of (a, b) tuples
         me.edges.foreach_set("vertices", unpack_list(edges))
-    
+
     if verts_col and me.polygons:
         vcol_lay = me.vertex_colors.new()
 
@@ -843,13 +834,19 @@ def create_mesh(new_objects,
 
     if verts_nor:
         clnors = array.array('f', [0.0] * (len(me.loops) * 3))
-        me.loops.foreach_get("normal", clnors)
+        if bpy.app.version < (4, 1, 0):
+            me.loops.foreach_get("normal", clnors)
+        else:
+            me.attributes["temp_custom_normals"].data.foreach_get("vector", clnors)
 
         if not unique_smooth_groups:
             me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
 
         me.normals_split_custom_set(tuple(zip(*(iter(clnors),) * 3)))
-        me.use_auto_smooth = True
+        if bpy.app.version < (4, 1, 0):
+            me.use_auto_smooth = True
+        else:
+            me.attributes.remove(me.attributes["temp_custom_normals"])
 
     ob = bpy.data.objects.new(me.name, me)
     new_objects.append(ob)
@@ -1077,7 +1074,7 @@ def load(context,
 
         # when there are faces that end with \
         # it means they are multiline-
-        # since we use xreadline we cant skip to the next line
+        # since we use xreadline we can't skip to the next line
         # so we need to know whether
         context_multi_line = b''
 
@@ -1396,10 +1393,10 @@ def load(context,
                 verts.append(val)
         else:
             verts = verts_loc
-        
+
         for data in split_mesh(verts, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
             verts_split, faces_split, unique_materials_split, dataname, use_vnor, use_vtex, use_vtex2, use_vtex3, use_vtex4 = data
-            
+
             verts_loc_split = []
             verts_col_split = []
             for val in verts_split:
