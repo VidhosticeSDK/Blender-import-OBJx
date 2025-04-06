@@ -46,7 +46,7 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".objx"
     filter_glob: StringProperty(
-        default="*.objx;*.obj;*.mtl",
+        default="*.objx;*.obj",
         options={'HIDDEN'},
     )
 
@@ -106,6 +106,21 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
         default=0.0,
     )
 
+    rotate_transform_apply: BoolProperty(
+        name="Rotate transform apply",
+        description="Apply rotation to zero",
+        default=True,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        import_panel_include(layout, self)
+        import_panel_transform(layout, self)
+        import_panel_geometry(layout, self)
+
     def execute(self, context):
         # print("Selected: " + context.active_object.name)
         from . import import_objx
@@ -151,88 +166,40 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
         else:
             return import_objx.load(context, filepath=self.filepath, **keywords)
 
-    def draw(self, context):
-        pass
+    def invoke(self, context, event):
+        return self.invoke_popup(context)
 
 
-class OBJX_PT_import_include(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
-    bl_label = "Include"
-    bl_parent_id = "FILE_PT_operator"
-
-    @classmethod
-    def poll(cls, context):
-        sfile = context.space_data
-        operator = sfile.active_operator
-
-        return operator.bl_idname == "IMPORT_SCENE_OT_objx"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        sfile = context.space_data
-        operator = sfile.active_operator
-
-        layout.prop(operator, 'use_image_search')
-        layout.prop(operator, 'use_smooth_groups')
-        layout.prop(operator, 'use_edges')
+def import_panel_include(layout, operator):
+    header, body = layout.panel("OBJX_import_include", default_closed=False)
+    header.label(text="Include")
+    if body:
+        body.prop(operator, "use_image_search")
+        body.prop(operator, "use_smooth_groups")
+        body.prop(operator, "use_edges")
 
 
-class OBJX_PT_import_transform(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
-    bl_label = "Transform"
-    bl_parent_id = "FILE_PT_operator"
-
-    @classmethod
-    def poll(cls, context):
-        sfile = context.space_data
-        operator = sfile.active_operator
-
-        return operator.bl_idname == "IMPORT_SCENE_OT_objx"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        sfile = context.space_data
-        operator = sfile.active_operator
-
-        layout.prop(operator, "global_clamp_size")
-        layout.prop(operator, "axis_forward")
-        layout.prop(operator, "axis_up")
+def import_panel_transform(layout, operator):
+    header, body = layout.panel("OBJX_import_transform", default_closed=False)
+    header.label(text="Transform")
+    if body:
+        body.prop(operator, "global_clamp_size")
+        body.prop(operator, "axis_forward")
+        body.prop(operator, "axis_up")
+        body.separator()
+        body.prop(operator, "rotate_transform_apply")
 
 
-class OBJX_PT_import_geometry(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
-    bl_label = "Geometry"
-    bl_parent_id = "FILE_PT_operator"
-    bl_options = {'DEFAULT_CLOSED'}
+def import_panel_geometry(layout, operator):
+    header, body = layout.panel("OBJX_import_geometry", default_closed=False)
+    header.label(text="Geometry")
+    if body:
+        body.row().prop(operator, "split_mode", expand=True)
 
-    @classmethod
-    def poll(cls, context):
-        sfile = context.space_data
-        operator = sfile.active_operator
+        body.use_property_split = True
+        body.use_property_decorate = False  # No animation.
 
-        return operator.bl_idname == "IMPORT_SCENE_OT_objx"
-
-    def draw(self, context):
-        layout = self.layout
-
-        sfile = context.space_data
-        operator = sfile.active_operator
-
-        layout.row().prop(operator, "split_mode", expand=True)
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        col = layout.column()
+        col = body.column()
         if operator.split_mode == 'ON':
             col.prop(operator, "use_split_objects", text="Split by Object")
             col.prop(operator, "use_split_groups", text="Split by Group")
@@ -257,9 +224,6 @@ def menu_func_import(self, context):
 
 classes = (
     ImportOBJx,
-    OBJX_PT_import_include,
-    OBJX_PT_import_transform,
-    OBJX_PT_import_geometry,
     IO_FH_objx,
 )
 

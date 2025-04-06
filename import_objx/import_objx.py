@@ -980,7 +980,8 @@ def load(context,
          use_image_search=True,
          use_groups_as_vgroups=False,
          relpath=None,
-         global_matrix=None
+         global_matrix=None,
+         rotate_transform_apply=True
          ):
     """
     Called by the user interface or another script.
@@ -1463,6 +1464,9 @@ def load(context,
 
             for obj in new_objects:
                 obj.scale = scale, scale, scale
+
+        if rotate_transform_apply:
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
 
         progress.leave_substeps("Done.")
         progress.leave_substeps("Finished importing: %r" % filepath)
