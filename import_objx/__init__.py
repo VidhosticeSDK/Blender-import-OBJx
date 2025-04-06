@@ -1,35 +1,16 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8-80 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 bl_info = {
-    "name": "Wavefront OBJx format for I3DShapesTool-OBJx",
-    "author": "Tomoaki Osada, Campbell Barton, Bastien Montagne, VidhosticeSDK",
-    "version": (0, 0, 1),
-    "blender": (2, 81, 6),
+    "name": "OBJx Import",
+    "author": "VidhosticeSDK, p2or, Tomoaki Osada, Campbell Barton, Bastien Montagne)",
+    "version": (1, 0, 0),
+    "blender": (2, 93, 0),
     "location": "File > Import-Export",
-    "description": "Import OBJx with 4xUV, VertexColor, multiple Materials",
+    "description": "Import OBJx, Import OBJ mesh, UVs, vertex colors, materials and textures",
     "warning": "",
-    "doc_url": "https://github.com/VidhosticeSDK/Blender-import-OBJx",
-    "support": 'COMMUNITY',
-    "category": "Import-Export",
-}
+    "tracker_url": "https://github.com/VidhosticeSDK/Blender-import-OBJx",
+    "category": "Import-Export"}
+
 
 if "bpy" in locals():
     import importlib
@@ -39,17 +20,19 @@ if "bpy" in locals():
 
 import bpy
 from bpy.props import (
-        BoolProperty,
-        FloatProperty,
-        StringProperty,
-        EnumProperty,
-        )
+    BoolProperty,
+    FloatProperty,
+    StringProperty,
+    EnumProperty,
+    CollectionProperty,
+)
 from bpy_extras.io_utils import (
-        ImportHelper,
-        orientation_helper,
-        path_reference_mode,
-        axis_conversion,
-        )
+    ImportHelper,
+    orientation_helper,
+    path_reference_mode,
+    axis_conversion,
+    poll_file_object_drop,
+)
 
 
 @orientation_helper(axis_forward='-Z', axis_up='Y')
@@ -59,65 +42,74 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
     bl_label = "Import OBJx"
     bl_options = {'PRESET', 'UNDO'}
 
+    directory: StringProperty()
+
     filename_ext = ".objx"
     filter_glob: StringProperty(
-            default="*.objx",
-            options={'HIDDEN'},
-            )
+        default="*.objx;*.obj;*.mtl",
+        options={'HIDDEN'},
+    )
+
+    files: CollectionProperty(
+        name="File Path",
+        type=bpy.types.OperatorFileListElement,
+    )
 
     use_edges: BoolProperty(
-            name="Lines",
-            description="Import lines and faces with 2 verts as edge",
-            default=True,
-            )
+        name="Lines",
+        description="Import lines and faces with 2 verts as edge",
+        default=True,
+    )
     use_smooth_groups: BoolProperty(
-            name="Smooth Groups",
-            description="Surround smooth groups by sharp edges",
-            default=True,
-            )
+        name="Smooth Groups",
+        description="Surround smooth groups by sharp edges",
+        default=True,
+    )
 
     use_split_objects: BoolProperty(
-            name="Object",
-            description="Import OBJx Objects into Blender Objects",
-            default=True,
-            )
+        name="Object",
+        description="Import OBJx Objects into Blender Objects",
+        default=True,
+    )
     use_split_groups: BoolProperty(
-            name="Group",
-            description="Import OBJx Groups into Blender Objects",
-            default=False,
-            )
+        name="Group",
+        description="Import OBJx Groups into Blender Objects",
+        default=False,
+    )
 
     use_groups_as_vgroups: BoolProperty(
-            name="Poly Groups",
-            description="Import OBJx groups as vertex groups",
-            default=False,
-            )
+        name="Poly Groups",
+        description="Import OBJx groups as vertex groups",
+        default=False,
+    )
 
     use_image_search: BoolProperty(
-            name="Image Search",
-            description="Search subdirs for any associated images "
-                        "(Warning, may be slow)",
-            default=True,
-            )
+        name="Image Search",
+        description="Search subdirs for any associated images "
+        "(Warning, may be slow)",
+        default=True,
+    )
 
     split_mode: EnumProperty(
-            name="Split",
-            items=(('ON', "Split", "Split geometry, omits unused verts"),
-                   ('OFF', "Keep Vert Order", "Keep vertex order from file"),
-                   ),
-            )
+        name="Split",
+        items=(
+            ('ON', "Split", "Split geometry, omits vertices unused by edges or faces"),
+            ('OFF', "Keep Vert Order", "Keep vertex order from file"),
+        ),
+    )
 
     global_clamp_size: FloatProperty(
-            name="Clamp Size",
-            description="Clamp bounds under this value (zero to disable)",
-            min=0.0, max=1000.0,
-            soft_min=0.0, soft_max=1000.0,
-            default=0.0,
-            )
+        name="Clamp Size",
+        description="Clamp bounds under this value (zero to disable)",
+        min=0.0, max=1000.0,
+        soft_min=0.0, soft_max=1000.0,
+        default=0.0,
+    )
 
     def execute(self, context):
         # print("Selected: " + context.active_object.name)
         from . import import_objx
+        import os
 
         if self.split_mode == 'OFF':
             self.use_split_objects = False
@@ -125,22 +117,39 @@ class ImportOBJx(bpy.types.Operator, ImportHelper):
         else:
             self.use_groups_as_vgroups = False
 
-        keywords = self.as_keywords(ignore=("axis_forward",
-                                            "axis_up",
-                                            "filter_glob",
-                                            "split_mode",
-                                            ))
+        keywords = self.as_keywords(
+            ignore=(
+                "axis_forward",
+                "axis_up",
+                "filter_glob",
+                "split_mode",
+                "directory",
+                "filepath",
+                "files",
+            ),
+        )
 
-        global_matrix = axis_conversion(from_forward=self.axis_forward,
-                                        from_up=self.axis_up,
-                                        ).to_4x4()
+        global_matrix = axis_conversion(
+            from_forward=self.axis_forward,
+            from_up=self.axis_up,
+        ).to_4x4()
         keywords["global_matrix"] = global_matrix
 
         if bpy.data.is_saved and context.preferences.filepaths.use_relative_paths:
-            import os
             keywords["relpath"] = os.path.dirname(bpy.data.filepath)
 
-        return import_objx.load(context, **keywords)
+#        return import_objx.load(context, **keywords)
+
+        if self.files:
+            ret = {'CANCELLED'}
+            dirname = os.path.dirname(self.filepath)
+            for file in self.files:
+                path = os.path.join(dirname, file.name)
+                if import_objx.load(context, filepath=path, **keywords) == {'FINISHED'}:
+                    ret = {'FINISHED'}
+            return ret
+        else:
+            return import_objx.load(context, filepath=self.filepath, **keywords)
 
     def draw(self, context):
         pass
@@ -231,8 +240,19 @@ class OBJX_PT_import_geometry(bpy.types.Panel):
             col.prop(operator, "use_groups_as_vgroups")
 
 
+class IO_FH_objx(bpy.types.FileHandler):
+    bl_idname = "IO_FH_objx"
+    bl_label = "OBJX"
+    bl_import_operator = "import_scene.objx"
+    bl_file_extensions = ".objx"
+
+    @classmethod
+    def poll_drop(cls, context):
+        return poll_file_object_drop(context)
+
+
 def menu_func_import(self, context):
-    self.layout.operator(ImportOBJx.bl_idname, text="Wavefront with 4xUV,VC,Mat (.objx)")
+    self.layout.operator(ImportOBJx.bl_idname, text="OBJx [4xUV, VC, Mat] (.objx)")
 
 
 classes = (
@@ -240,6 +260,7 @@ classes = (
     OBJX_PT_import_include,
     OBJX_PT_import_transform,
     OBJX_PT_import_geometry,
+    IO_FH_objx,
 )
 
 
