@@ -1,6 +1,6 @@
 # Modification by VidhosticeSDK
 
-Same as below, but the OBJx import is here: `File --> Import --> Wavefront with 4xUV,VC,Mat (.objx)`
+Same as below, but the OBJx import is here: `File --> Import --> OBJx [4xUV, VC, Mat] (.objx)`
 
 ```
 # Wavefront OBJx file (extension: 4xUV, VertexColor, multiple Materials)
