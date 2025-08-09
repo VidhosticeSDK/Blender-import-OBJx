@@ -2,6 +2,8 @@
 
 Same as below, but the OBJx import is here: `File --> Import --> OBJx [4xUV, VC, Mat] (.objx)`
 
+**10.8.2025 - Added: Vertex Alpha**
+
 ```
 # Wavefront OBJx file (extension: 4xUV, VertexColor, multiple Materials)
 # Creator: I3DShapesTool by Donkie (edited by VidhosticeSDK)
