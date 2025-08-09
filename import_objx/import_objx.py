@@ -803,7 +803,7 @@ def create_mesh(new_objects,
             col.color[0] = verts_col[loops_vert_idx[i]][0]
             col.color[1] = verts_col[loops_vert_idx[i]][1]
             col.color[2] = verts_col[loops_vert_idx[i]][2]
-            col.color[3] = 1.0
+            col.color[3] = verts_col[loops_vert_idx[i]][3]      # alpha
 
     me.validate(clean_customdata=False)  # *Very* important to not remove lnors here!
     me.update(calc_edges=use_edges, calc_edges_loose=use_edges)
@@ -1146,7 +1146,11 @@ def load(context,
                         try:
                             vdata.append(list(map(float_func, line_split[1:vdata_len + 1])))
                             if len(line_split) == 7:
-                                verts_col.append(list(map(float_func, line_split[vdata_len + 1:vdata_len+4])))
+                                rgb = list(map(float_func, line_split[vdata_len + 1:vdata_len+4]))
+                                rgb.append(1.0)             # add alpha=1.0
+                                verts_col.append(rgb)
+                            elif len(line_split) == 8:      # with alpha
+                                verts_col.append(list(map(float_func, line_split[vdata_len + 1:vdata_len+5])))
                         except:
                             do_quick_vert = False
                             # In case we get too many failures on quick parsing, force fallback to full multi-line one.
